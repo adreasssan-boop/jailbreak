@@ -262,7 +262,7 @@ FlyToggle.MouseButton1Click:Connect(function()
 end)
 
 -- ESP Settings
-local ESPMaxDistance = 500
+local ESPMaxDistance = 1000 -- Увеличена дистанция до 1000 метров
 local ESPEnabled = false
 local ESPLabels = {}
 
@@ -286,14 +286,14 @@ DistanceSlider.BorderSizePixel = 0
 DistanceSlider.Parent = VisualsTab
 
 local DistanceFill = Instance.new("Frame")
-DistanceFill.Size = UDim2.new(0.5, 0, 1, 0)
+DistanceFill.Size = UDim2.new(1, 0, 1, 0)
 DistanceFill.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
 DistanceFill.BorderSizePixel = 0
 DistanceFill.Parent = DistanceSlider
 
 local DistanceButton = Instance.new("TextButton")
 DistanceButton.Size = UDim2.new(0, 10, 0, 25)
-DistanceButton.Position = UDim2.new(0.5, -5, 0.5, -12)
+DistanceButton.Position = UDim2.new(1, -5, 0.5, -12)
 DistanceButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
 DistanceButton.BorderSizePixel = 0
 DistanceButton.Text = ""
@@ -569,7 +569,7 @@ UserInputService.InputChanged:Connect(function(input)
         local sliderSize = DistanceSlider.AbsoluteSize
         
         local relativeX = math.clamp((mousePos.X - sliderPos.X) / sliderSize.X, 0, 1)
-        ESPMaxDistance = math.floor(relativeX * 500)
+        ESPMaxDistance = math.floor(relativeX * 1000) -- Максимум 1000 метров
         
         DistanceLabel.Text = "ESP Distance: " .. ESPMaxDistance .. "m"
         DistanceFill.Size = UDim2.new(relativeX, 0, 1, 0)
@@ -625,6 +625,26 @@ local function UpdateMenuColor(colorIndex)
             math.max(0, MenuColors[colorIndex].B - 0.03)
         )
     end
+    
+    -- Обновляем цвет кнопок внутри вкладок
+    for _, tabFrame in pairs(TabFrames) do
+        for _, child in pairs(tabFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child.BackgroundColor3 = Color3.new(
+                    math.max(0, MenuColors[colorIndex].R - 0.02),
+                    math.max(0, MenuColors[colorIndex].G - 0.02),
+                    math.max(0, MenuColors[colorIndex].B - 0.02)
+                )
+            end
+        end
+    end
+    
+    -- Обновляем цвет слайдера
+    DistanceSlider.BackgroundColor3 = Color3.new(
+        math.max(0, MenuColors[colorIndex].R - 0.01),
+        math.max(0, MenuColors[colorIndex].G - 0.01),
+        math.max(0, MenuColors[colorIndex].B - 0.01)
+    )
 end
 
 for i = 1, 9 do
