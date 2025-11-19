@@ -52,6 +52,16 @@ local MenuColors = {
 
 local CurrentMenuColor = 1
 
+-- Цвета ESP
+local ESPColors = {
+    Color3.fromRGB(128, 128, 128), -- Серый
+    Color3.fromRGB(0, 0, 0),       -- Черный
+    Color3.fromRGB(255, 0, 0),     -- Красный
+    Color3.fromRGB(0, 100, 255)    -- Синий
+}
+
+local CurrentESPColor = 1
+
 -- Перемещение меню
 local Dragging = false
 local DragInput, DragStart, StartPosition
@@ -252,10 +262,9 @@ FlyToggle.MouseButton1Click:Connect(function()
 end)
 
 -- ESP Settings
-local ESPColor = Color3.fromRGB(128, 128, 128) -- Серый цвет
 local ESPMaxDistance = 500
 local ESPEnabled = false
-local ESPBoxes = {}
+local ESPLabels = {}
 
 -- ESP Distance Slider
 local DistanceLabel = Instance.new("TextLabel")
@@ -277,18 +286,54 @@ DistanceSlider.BorderSizePixel = 0
 DistanceSlider.Parent = VisualsTab
 
 local DistanceFill = Instance.new("Frame")
-DistanceFill.Size = UDim2.new(1, 0, 1, 0)
+DistanceFill.Size = UDim2.new(0.5, 0, 1, 0)
 DistanceFill.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
 DistanceFill.BorderSizePixel = 0
 DistanceFill.Parent = DistanceSlider
 
 local DistanceButton = Instance.new("TextButton")
 DistanceButton.Size = UDim2.new(0, 10, 0, 25)
-DistanceButton.Position = UDim2.new(1, -5, 0.5, -12)
+DistanceButton.Position = UDim2.new(0.5, -5, 0.5, -12)
 DistanceButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
 DistanceButton.BorderSizePixel = 0
 DistanceButton.Text = ""
 DistanceButton.Parent = DistanceSlider
+
+-- ESP Color Selection
+local ESPColorLabel = Instance.new("TextLabel")
+ESPColorLabel.Size = UDim2.new(1, -20, 0, 25)
+ESPColorLabel.Position = UDim2.new(0, 10, 0, 120)
+ESPColorLabel.BackgroundTransparency = 1
+ESPColorLabel.Text = "ESP Color: Gray"
+ESPColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+ESPColorLabel.Font = Enum.Font.Gotham
+ESPColorLabel.TextSize = 12
+ESPColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+ESPColorLabel.Parent = VisualsTab
+
+local ESPColorButtons = {}
+local ESPColorNames = {"Gray", "Black", "Red", "Blue"}
+
+for i = 1, 4 do
+    local ESPColorButton = Instance.new("TextButton")
+    ESPColorButton.Size = UDim2.new(0.22, -5, 0, 25)
+    ESPColorButton.Position = UDim2.new((i-1) * 0.25, 10, 0, 145)
+    ESPColorButton.BackgroundColor3 = ESPColors[i]
+    ESPColorButton.BorderSizePixel = 0
+    ESPColorButton.Text = ESPColorNames[i]
+    ESPColorButton.TextColor3 = (i == 2) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
+    ESPColorButton.Font = Enum.Font.Gotham
+    ESPColorButton.TextSize = 10
+    ESPColorButton.Parent = VisualsTab
+    
+    ESPColorButton.MouseButton1Click:Connect(function()
+        CurrentESPColor = i
+        ESPColorLabel.Text = "ESP Color: " .. ESPColorNames[i]
+        UpdateAllESPColors()
+    end)
+    
+    table.insert(ESPColorButtons, ESPColorButton)
+end
 
 -- ESP Toggle
 local ESPToggle = Instance.new("TextButton")
@@ -296,94 +341,148 @@ ESPToggle.Size = UDim2.new(1, -20, 0, 40)
 ESPToggle.Position = UDim2.new(0, 10, 0, 15)
 ESPToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 ESPToggle.BorderSizePixel = 0
-ESPToggle.Text = "3D Box ESP: OFF"
+ESPToggle.Text = "ESP: OFF"
 ESPToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 ESPToggle.Font = Enum.Font.Gotham
 ESPToggle.TextSize = 14
 ESPToggle.Parent = VisualsTab
 
-local function Create3DBox(player, character)
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+local function CreateESP(player, character)
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
-    local box = Instance.new("BoxHandleAdornment")
-    box.Name = "RAGE_3D_ESP"
-    box.Adornee = character
-    box.AlwaysOnTop = true
-    box.ZIndex = 10
-    box.Size = character:GetExtentsSize() * 1.1
-    box.Transparency = 0.7
-    box.Color3 = ESPColor -- Серый цвет для всех
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "RAGE_ESP"
+    billboard.Adornee = character.Head or character.HumanoidRootPart
+    billboard.Size = UDim2.new(0, 200, 0, 80)
+    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = ESPMaxDistance
     
-    box.Parent = character
-    return box
-end
-
-local function ShouldShowESP(player, character)
-    if not character or not LocalPlayer.Character then return false end
-    if not character:FindFirstChild("HumanoidRootPart") then return false end
+    -- HP Bar Background
+    local hpBarBackground = Instance.new("Frame")
+    hpBarBackground.Size = UDim2.new(1, 0, 0, 12)
+    hpBarBackground.Position = UDim2.new(0, 0, 0, 0)
+    hpBarBackground.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    hpBarBackground.BorderSizePixel = 0
+    hpBarBackground.Parent = billboard
     
-    local distance = (LocalPlayer.Character.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
-    return distance <= ESPMaxDistance
-end
-
-local function AddESP(player)
-    if not player or player == LocalPlayer then return end
+    -- HP Bar Fill
+    local hpBarFill = Instance.new("Frame")
+    hpBarFill.Size = UDim2.new(1, 0, 1, 0)
+    hpBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    hpBarFill.BorderSizePixel = 0
+    hpBarFill.Parent = hpBarBackground
     
-    local function setupCharacterESP(character)
-        if not character then return end
-        
-        wait(1)
-        
-        if ShouldShowESP(player, character) then
-            local box = Create3DBox(player, character)
-            if box then
-                ESPBoxes[player] = box
-            end
-        end
-        
-        -- Обновляем ESP при изменении дистанции
-        RunService.Heartbeat:Connect(function()
-            if ESPBoxes[player] then
-                if not ShouldShowESP(player, character) then
-                    ESPBoxes[player]:Destroy()
-                    ESPBoxes[player] = nil
-                end
+    -- Name Label
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.Position = UDim2.new(0, 0, 0, 15)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = ESPColors[CurrentESPColor]
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 14
+    nameLabel.Parent = billboard
+    
+    -- Distance Label
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Size = UDim2.new(1, 0, 0, 20)
+    distanceLabel.Position = UDim2.new(0, 0, 0, 35)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.TextColor3 = ESPColors[CurrentESPColor]
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distanceLabel.Font = Enum.Font.Gotham
+    distanceLabel.TextSize = 12
+    distanceLabel.Parent = billboard
+    
+    -- HP Text Label
+    local hpLabel = Instance.new("TextLabel")
+    hpLabel.Size = UDim2.new(1, 0, 0, 20)
+    hpLabel.Position = UDim2.new(0, 0, 0, 55)
+    hpLabel.BackgroundTransparency = 1
+    hpLabel.TextColor3 = ESPColors[CurrentESPColor]
+    hpLabel.TextStrokeTransparency = 0
+    hpLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    hpLabel.Font = Enum.Font.Gotham
+    hpLabel.TextSize = 11
+    hpLabel.Parent = billboard
+    
+    billboard.Parent = character
+    ESPLabels[player] = {
+        Billboard = billboard,
+        HPBar = hpBarFill,
+        NameLabel = nameLabel,
+        DistanceLabel = distanceLabel,
+        HPLabel = hpLabel
+    }
+    
+    -- Функция обновления HP
+    local function updateHP()
+        local humanoid = character:FindFirstChild("Humanoid")
+        if humanoid then
+            local hp = humanoid.Health
+            local maxHp = humanoid.MaxHealth
+            local hpPercent = hp / maxHp
+            
+            hpBarFill.Size = UDim2.new(hpPercent, 0, 1, 0)
+            
+            -- Меняем цвет HP бара в зависимости от здоровья
+            if hpPercent > 0.5 then
+                hpBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Зеленый
+            elseif hpPercent > 0.25 then
+                hpBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Желтый
             else
-                if ShouldShowESP(player, character) then
-                    local box = Create3DBox(player, character)
-                    if box then
-                        ESPBoxes[player] = box
-                    end
-                end
+                hpBarFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Красный
             end
-        end)
-    end
-    
-    if player.Character then
-        setupCharacterESP(player.Character)
-    end
-    
-    player.CharacterAdded:Connect(function(character)
-        if ESPEnabled then
-            setupCharacterESP(character)
+            
+            hpLabel.Text = "HP: " .. math.floor(hp) .. "/" .. math.floor(maxHp)
+        else
+            hpLabel.Text = "HP: N/A"
         end
+    end
+    
+    -- Функция обновления дистанции
+    local function updateDistance()
+        if not character or not LocalPlayer.Character then return end
+        if not character:FindFirstChild("HumanoidRootPart") then return end
+        
+        local distance = (LocalPlayer.Character.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
+        distanceLabel.Text = math.floor(distance) .. "m"
+        
+        -- Автоматическое скрытие при превышении дистанции
+        if distance > ESPMaxDistance then
+            billboard.Enabled = false
+        else
+            billboard.Enabled = true
+        end
+    end
+    
+    -- Постоянное обновление
+    RunService.Heartbeat:Connect(function()
+        updateHP()
+        updateDistance()
     end)
 end
 
 local function RemoveESP(player)
-    if ESPBoxes[player] then
-        ESPBoxes[player]:Destroy()
-        ESPBoxes[player] = nil
+    if ESPLabels[player] then
+        ESPLabels[player].Billboard:Destroy()
+        ESPLabels[player] = nil
     end
 end
 
 local function UpdateAllESP()
-    for player, box in pairs(ESPBoxes) do
-        if player.Character and ShouldShowESP(player, player.Character) then
-            if not box or not box.Parent then
-                local newBox = Create3DBox(player, player.Character)
-                if newBox then
-                    ESPBoxes[player] = newBox
+    for player, espData in pairs(ESPLabels) do
+        if player.Character and espData.Billboard.Parent == player.Character then
+            if player.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character then
+                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                if distance > ESPMaxDistance then
+                    espData.Billboard.Enabled = false
+                else
+                    espData.Billboard.Enabled = true
                 end
             end
         else
@@ -392,35 +491,67 @@ local function UpdateAllESP()
     end
 end
 
+local function UpdateAllESPColors()
+    for player, espData in pairs(ESPLabels) do
+        if espData then
+            espData.NameLabel.TextColor3 = ESPColors[CurrentESPColor]
+            espData.DistanceLabel.TextColor3 = ESPColors[CurrentESPColor]
+            espData.HPLabel.TextColor3 = ESPColors[CurrentESPColor]
+        end
+    end
+end
+
 ESPToggle.MouseButton1Click:Connect(function()
     ESPEnabled = not ESPEnabled
-    ESPToggle.Text = "3D Box ESP: " .. (ESPEnabled and "ON" or "OFF")
+    ESPToggle.Text = "ESP: " .. (ESPEnabled and "ON" or "OFF")
     
     if ESPEnabled then
-        for player, _ in pairs(ESPBoxes) do
+        -- Удаляем старые ESP
+        for player, _ in pairs(ESPLabels) do
             RemoveESP(player)
         end
-        ESPBoxes = {}
+        ESPLabels = {}
         
+        -- Создаем ESP для всех игроков
         for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                AddESP(player)
+            if player ~= LocalPlayer and player.Character then
+                CreateESP(player, player.Character)
             end
         end
         
+        -- Обработка новых игроков
         Players.PlayerAdded:Connect(function(player)
             if player ~= LocalPlayer then
-                AddESP(player)
+                player.CharacterAdded:Connect(function(character)
+                    if ESPEnabled then
+                        wait(1)
+                        CreateESP(player, character)
+                    end
+                end)
             end
         end)
         
+        -- Обработка смены персонажа
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                player.CharacterAdded:Connect(function(character)
+                    if ESPEnabled then
+                        wait(1)
+                        CreateESP(player, character)
+                    end
+                end)
+            end
+        end
+        
         -- Постоянное обновление ESP
         RunService.Heartbeat:Connect(UpdateAllESP)
+        
     else
-        for player, _ in pairs(ESPBoxes) do
+        -- Удаляем все ESP
+        for player, _ in pairs(ESPLabels) do
             RemoveESP(player)
         end
-        ESPBoxes = {}
+        ESPLabels = {}
     end
 end)
 
@@ -443,6 +574,11 @@ UserInputService.InputChanged:Connect(function(input)
         DistanceLabel.Text = "ESP Distance: " .. ESPMaxDistance .. "m"
         DistanceFill.Size = UDim2.new(relativeX, 0, 1, 0)
         DistanceButton.Position = UDim2.new(relativeX, -5, 0.5, -12)
+        
+        -- Обновляем MaxDistance для всех ESP
+        for _, espData in pairs(ESPLabels) do
+            espData.Billboard.MaxDistance = ESPMaxDistance
+        end
         
         UpdateAllESP()
     end
@@ -469,10 +605,32 @@ ColorLabel.Parent = SettingsTab
 local ColorButtons = {}
 local ColorNames = {"Black", "Blue", "Red", "Green", "Yellow", "Purple", "Cyan", "Orange", "Gray"}
 
+local function UpdateMenuColor(colorIndex)
+    CurrentMenuColor = colorIndex
+    MainFrame.BackgroundColor3 = MenuColors[colorIndex]
+    
+    -- Обновляем цвет заголовка (немного темнее основного)
+    local titleColor = Color3.new(
+        math.max(0, MenuColors[colorIndex].R - 0.05),
+        math.max(0, MenuColors[colorIndex].G - 0.05),
+        math.max(0, MenuColors[colorIndex].B - 0.05)
+    )
+    Title.BackgroundColor3 = titleColor
+    
+    -- Обновляем цвет вкладок
+    for _, tab in pairs(TabButtons) do
+        tab.BackgroundColor3 = Color3.new(
+            math.max(0, MenuColors[colorIndex].R - 0.03),
+            math.max(0, MenuColors[colorIndex].G - 0.03),
+            math.max(0, MenuColors[colorIndex].B - 0.03)
+        )
+    end
+end
+
 for i = 1, 9 do
     local ColorButton = Instance.new("TextButton")
     ColorButton.Size = UDim2.new(0.3, -5, 0, 30)
-    ColorButton.Position = UDim2.new(((i-1) % 3) * 0.33, 10, math.floor((i-1) / 3) * 0.1, 55)
+    ColorButton.Position = UDim2.new(((i-1) % 3) * 0.33, 10, 0, 55 + math.floor((i-1) / 3) * 35)
     ColorButton.BackgroundColor3 = MenuColors[i]
     ColorButton.BorderSizePixel = 0
     ColorButton.Text = ColorNames[i]
@@ -482,13 +640,7 @@ for i = 1, 9 do
     ColorButton.Parent = SettingsTab
     
     ColorButton.MouseButton1Click:Connect(function()
-        CurrentMenuColor = i
-        MainFrame.BackgroundColor3 = MenuColors[i]
-        Title.BackgroundColor3 = Color3.fromRGB(
-            math.clamp(MenuColors[i].R * 255 - 10, 0, 255),
-            math.clamp(MenuColors[i].G * 255 - 10, 0, 255),
-            math.clamp(MenuColors[i].B * 255 - 10, 0, 255)
-        ) / 255
+        UpdateMenuColor(i)
     end)
     
     table.insert(ColorButtons, ColorButton)
