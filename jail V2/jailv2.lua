@@ -37,6 +37,21 @@ Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
 Title.Parent = MainFrame
 
+-- Цвета меню
+local MenuColors = {
+    Color3.fromRGB(25, 25, 25),    -- Черный
+    Color3.fromRGB(30, 30, 45),    -- Синий
+    Color3.fromRGB(45, 30, 30),    -- Красный
+    Color3.fromRGB(30, 45, 30),    -- Зеленый
+    Color3.fromRGB(45, 45, 25),    -- Желтый
+    Color3.fromRGB(45, 30, 45),    -- Фиолетовый
+    Color3.fromRGB(25, 45, 45),    -- Бирюзовый
+    Color3.fromRGB(45, 35, 25),    -- Оранжевый
+    Color3.fromRGB(35, 35, 35)     -- Серый
+}
+
+local CurrentMenuColor = 1
+
 -- Перемещение меню
 local Dragging = false
 local DragInput, DragStart, StartPosition
@@ -80,8 +95,8 @@ local CurrentTab = nil
 
 local function CreateTab(tabName)
     local TabButton = Instance.new("TextButton")
-    TabButton.Size = UDim2.new(0.5, 0, 0, 35)
-    TabButton.Position = UDim2.new(0, #TabButtons * 250, 0, 45)
+    TabButton.Size = UDim2.new(0.33, 0, 0, 35)
+    TabButton.Position = UDim2.new(0, #TabButtons * 167, 0, 45)
     TabButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     TabButton.BorderSizePixel = 0
     TabButton.Text = tabName
@@ -120,6 +135,7 @@ end
 -- Create Tabs
 local MiscTab = CreateTab("Misc")
 local VisualsTab = CreateTab("Visuals")
+local SettingsTab = CreateTab("Settings")
 
 -- Noclip Toggle
 local NoclipToggle = Instance.new("TextButton")
@@ -236,8 +252,43 @@ FlyToggle.MouseButton1Click:Connect(function()
 end)
 
 -- ESP Settings
-local CriminalsColor = Color3.fromRGB(255, 165, 0)
-local PoliceColor = Color3.fromRGB(0, 100, 255)
+local ESPColor = Color3.fromRGB(128, 128, 128) -- Серый цвет
+local ESPMaxDistance = 500
+local ESPEnabled = false
+local ESPBoxes = {}
+
+-- ESP Distance Slider
+local DistanceLabel = Instance.new("TextLabel")
+DistanceLabel.Size = UDim2.new(1, -20, 0, 25)
+DistanceLabel.Position = UDim2.new(0, 10, 0, 65)
+DistanceLabel.BackgroundTransparency = 1
+DistanceLabel.Text = "ESP Distance: " .. ESPMaxDistance .. "m"
+DistanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+DistanceLabel.Font = Enum.Font.Gotham
+DistanceLabel.TextSize = 12
+DistanceLabel.TextXAlignment = Enum.TextXAlignment.Left
+DistanceLabel.Parent = VisualsTab
+
+local DistanceSlider = Instance.new("Frame")
+DistanceSlider.Size = UDim2.new(1, -20, 0, 20)
+DistanceSlider.Position = UDim2.new(0, 10, 0, 90)
+DistanceSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+DistanceSlider.BorderSizePixel = 0
+DistanceSlider.Parent = VisualsTab
+
+local DistanceFill = Instance.new("Frame")
+DistanceFill.Size = UDim2.new(1, 0, 1, 0)
+DistanceFill.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
+DistanceFill.BorderSizePixel = 0
+DistanceFill.Parent = DistanceSlider
+
+local DistanceButton = Instance.new("TextButton")
+DistanceButton.Size = UDim2.new(0, 10, 0, 25)
+DistanceButton.Position = UDim2.new(1, -5, 0.5, -12)
+DistanceButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+DistanceButton.BorderSizePixel = 0
+DistanceButton.Text = ""
+DistanceButton.Parent = DistanceSlider
 
 -- ESP Toggle
 local ESPToggle = Instance.new("TextButton")
@@ -251,9 +302,6 @@ ESPToggle.Font = Enum.Font.Gotham
 ESPToggle.TextSize = 14
 ESPToggle.Parent = VisualsTab
 
-local ESPEnabled = false
-local ESPBoxes = {}
-
 local function Create3DBox(player, character)
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
@@ -264,19 +312,18 @@ local function Create3DBox(player, character)
     box.ZIndex = 10
     box.Size = character:GetExtentsSize() * 1.1
     box.Transparency = 0.7
-    
-    if player.Team then
-        if string.lower(player.Team.Name):find("criminal") then
-            box.Color3 = CriminalsColor
-        else
-            box.Color3 = PoliceColor
-        end
-    else
-        box.Color3 = Color3.fromRGB(255, 255, 255)
-    end
+    box.Color3 = ESPColor -- Серый цвет для всех
     
     box.Parent = character
     return box
+end
+
+local function ShouldShowESP(player, character)
+    if not character or not LocalPlayer.Character then return false end
+    if not character:FindFirstChild("HumanoidRootPart") then return false end
+    
+    local distance = (LocalPlayer.Character.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude
+    return distance <= ESPMaxDistance
 end
 
 local function AddESP(player)
@@ -285,25 +332,28 @@ local function AddESP(player)
     local function setupCharacterESP(character)
         if not character then return end
         
-        wait(1) -- Ждем полной загрузки персонажа
+        wait(1)
         
-        if character:FindFirstChild("HumanoidRootPart") then
+        if ShouldShowESP(player, character) then
             local box = Create3DBox(player, character)
             if box then
                 ESPBoxes[player] = box
             end
         end
         
-        -- Пересоздаем ESP при изменении персонажа
-        character.ChildAdded:Connect(function(child)
-            if child.Name == "HumanoidRootPart" and ESPEnabled then
-                wait(0.5)
-                if ESPBoxes[player] then
+        -- Обновляем ESP при изменении дистанции
+        RunService.Heartbeat:Connect(function()
+            if ESPBoxes[player] then
+                if not ShouldShowESP(player, character) then
                     ESPBoxes[player]:Destroy()
+                    ESPBoxes[player] = nil
                 end
-                local newBox = Create3DBox(player, character)
-                if newBox then
-                    ESPBoxes[player] = newBox
+            else
+                if ShouldShowESP(player, character) then
+                    local box = Create3DBox(player, character)
+                    if box then
+                        ESPBoxes[player] = box
+                    end
                 end
             end
         end)
@@ -327,38 +377,122 @@ local function RemoveESP(player)
     end
 end
 
+local function UpdateAllESP()
+    for player, box in pairs(ESPBoxes) do
+        if player.Character and ShouldShowESP(player, player.Character) then
+            if not box or not box.Parent then
+                local newBox = Create3DBox(player, player.Character)
+                if newBox then
+                    ESPBoxes[player] = newBox
+                end
+            end
+        else
+            RemoveESP(player)
+        end
+    end
+end
+
 ESPToggle.MouseButton1Click:Connect(function()
     ESPEnabled = not ESPEnabled
     ESPToggle.Text = "3D Box ESP: " .. (ESPEnabled and "ON" or "OFF")
     
     if ESPEnabled then
-        -- Удаляем старые ESP перед созданием новых
         for player, _ in pairs(ESPBoxes) do
             RemoveESP(player)
         end
         ESPBoxes = {}
         
-        -- Добавляем ESP всем игрокам
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
                 AddESP(player)
             end
         end
         
-        -- Добавляем ESP новым игрокам
         Players.PlayerAdded:Connect(function(player)
             if player ~= LocalPlayer then
                 AddESP(player)
             end
         end)
+        
+        -- Постоянное обновление ESP
+        RunService.Heartbeat:Connect(UpdateAllESP)
     else
-        -- Удаляем все ESP
         for player, _ in pairs(ESPBoxes) do
             RemoveESP(player)
         end
         ESPBoxes = {}
     end
 end)
+
+-- Slider Logic
+local SliderDragging = false
+
+DistanceButton.MouseButton1Down:Connect(function()
+    SliderDragging = true
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if SliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local mousePos = UserInputService:GetMouseLocation()
+        local sliderPos = DistanceSlider.AbsolutePosition
+        local sliderSize = DistanceSlider.AbsoluteSize
+        
+        local relativeX = math.clamp((mousePos.X - sliderPos.X) / sliderSize.X, 0, 1)
+        ESPMaxDistance = math.floor(relativeX * 500)
+        
+        DistanceLabel.Text = "ESP Distance: " .. ESPMaxDistance .. "m"
+        DistanceFill.Size = UDim2.new(relativeX, 0, 1, 0)
+        DistanceButton.Position = UDim2.new(relativeX, -5, 0.5, -12)
+        
+        UpdateAllESP()
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        SliderDragging = false
+    end
+end)
+
+-- Settings - Color Selection
+local ColorLabel = Instance.new("TextLabel")
+ColorLabel.Size = UDim2.new(1, -20, 0, 30)
+ColorLabel.Position = UDim2.new(0, 10, 0, 15)
+ColorLabel.BackgroundTransparency = 1
+ColorLabel.Text = "Menu Color:"
+ColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+ColorLabel.Font = Enum.Font.Gotham
+ColorLabel.TextSize = 14
+ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+ColorLabel.Parent = SettingsTab
+
+local ColorButtons = {}
+local ColorNames = {"Black", "Blue", "Red", "Green", "Yellow", "Purple", "Cyan", "Orange", "Gray"}
+
+for i = 1, 9 do
+    local ColorButton = Instance.new("TextButton")
+    ColorButton.Size = UDim2.new(0.3, -5, 0, 30)
+    ColorButton.Position = UDim2.new(((i-1) % 3) * 0.33, 10, math.floor((i-1) / 3) * 0.1, 55)
+    ColorButton.BackgroundColor3 = MenuColors[i]
+    ColorButton.BorderSizePixel = 0
+    ColorButton.Text = ColorNames[i]
+    ColorButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ColorButton.Font = Enum.Font.Gotham
+    ColorButton.TextSize = 11
+    ColorButton.Parent = SettingsTab
+    
+    ColorButton.MouseButton1Click:Connect(function()
+        CurrentMenuColor = i
+        MainFrame.BackgroundColor3 = MenuColors[i]
+        Title.BackgroundColor3 = Color3.fromRGB(
+            math.clamp(MenuColors[i].R * 255 - 10, 0, 255),
+            math.clamp(MenuColors[i].G * 255 - 10, 0, 255),
+            math.clamp(MenuColors[i].B * 255 - 10, 0, 255)
+        ) / 255
+    end)
+    
+    table.insert(ColorButtons, ColorButton)
+end
 
 -- Button hover effects
 local function SetupButtonHover(button)
