@@ -102,13 +102,7 @@ local function CreateTab(tabName)
             CurrentTab.Visible = false
         end
         
-        -- Плавное появление новой вкладки
         TabFrame.Visible = true
-        TabFrame.BackgroundTransparency = 1
-        
-        local tween = TweenService:Create(TabFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0})
-        tween:Play()
-        
         CurrentTab = TabFrame
     end)
     
@@ -242,50 +236,13 @@ FlyToggle.MouseButton1Click:Connect(function()
 end)
 
 -- ESP Settings
-local CriminalsColor = Color3.fromRGB(255, 165, 0)  -- Orange
-local PoliceColor = Color3.fromRGB(0, 100, 255)     -- Blue
-
--- Color Pickers for ESP
-local CriminalsColorLabel = Instance.new("TextLabel")
-CriminalsColorLabel.Size = UDim2.new(1, -20, 0, 25)
-CriminalsColorLabel.Position = UDim2.new(0, 10, 0, 15)
-CriminalsColorLabel.BackgroundTransparency = 1
-CriminalsColorLabel.Text = "Criminals Color:"
-CriminalsColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-CriminalsColorLabel.Font = Enum.Font.Gotham
-CriminalsColorLabel.TextSize = 12
-CriminalsColorLabel.TextXAlignment = Enum.TextXAlignment.Left
-CriminalsColorLabel.Parent = VisualsTab
-
-local CriminalsColorPreview = Instance.new("Frame")
-CriminalsColorPreview.Size = UDim2.new(0, 80, 0, 20)
-CriminalsColorPreview.Position = UDim2.new(1, -90, 0, 15)
-CriminalsColorPreview.BackgroundColor3 = CriminalsColor
-CriminalsColorPreview.BorderSizePixel = 0
-CriminalsColorPreview.Parent = VisualsTab
-
-local PoliceColorLabel = Instance.new("TextLabel")
-PoliceColorLabel.Size = UDim2.new(1, -20, 0, 25)
-PoliceColorLabel.Position = UDim2.new(0, 10, 0, 45)
-PoliceColorLabel.BackgroundTransparency = 1
-PoliceColorLabel.Text = "Police Color:"
-PoliceColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-PoliceColorLabel.Font = Enum.Font.Gotham
-PoliceColorLabel.TextSize = 12
-PoliceColorLabel.TextXAlignment = Enum.TextXAlignment.Left
-PoliceColorLabel.Parent = VisualsTab
-
-local PoliceColorPreview = Instance.new("Frame")
-PoliceColorPreview.Size = UDim2.new(0, 80, 0, 20)
-PoliceColorPreview.Position = UDim2.new(1, -90, 0, 45)
-PoliceColorPreview.BackgroundColor3 = PoliceColor
-PoliceColorPreview.BorderSizePixel = 0
-PoliceColorPreview.Parent = VisualsTab
+local CriminalsColor = Color3.fromRGB(255, 165, 0)
+local PoliceColor = Color3.fromRGB(0, 100, 255)
 
 -- ESP Toggle
 local ESPToggle = Instance.new("TextButton")
 ESPToggle.Size = UDim2.new(1, -20, 0, 40)
-ESPToggle.Position = UDim2.new(0, 10, 0, 80)
+ESPToggle.Position = UDim2.new(0, 10, 0, 15)
 ESPToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 ESPToggle.BorderSizePixel = 0
 ESPToggle.Text = "3D Box ESP: OFF"
@@ -297,8 +254,8 @@ ESPToggle.Parent = VisualsTab
 local ESPEnabled = false
 local ESPBoxes = {}
 
-local function Create3DBox(character)
-    if not character then return nil end
+local function Create3DBox(player, character)
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
     local box = Instance.new("BoxHandleAdornment")
     box.Name = "RAGE_3D_ESP"
@@ -308,9 +265,7 @@ local function Create3DBox(character)
     box.Size = character:GetExtentsSize() * 1.1
     box.Transparency = 0.7
     
-    -- Set color based on team with gradient effect
-    local player = Players:GetPlayerFromCharacter(character)
-    if player and player.Team then
+    if player.Team then
         if string.lower(player.Team.Name):find("criminal") then
             box.Color3 = CriminalsColor
         else
@@ -330,17 +285,25 @@ local function AddESP(player)
     local function setupCharacterESP(character)
         if not character then return end
         
-        wait(0.5)
+        wait(1) -- Ждем полной загрузки персонажа
         
-        local box = Create3DBox(character)
-        if box then
-            ESPBoxes[player] = box
+        if character:FindFirstChild("HumanoidRootPart") then
+            local box = Create3DBox(player, character)
+            if box then
+                ESPBoxes[player] = box
+            end
         end
         
-        character.AncestryChanged:Connect(function()
-            if not character:IsDescendantOf(game) then
-                if box then
-                    box:Destroy()
+        -- Пересоздаем ESP при изменении персонажа
+        character.ChildAdded:Connect(function(child)
+            if child.Name == "HumanoidRootPart" and ESPEnabled then
+                wait(0.5)
+                if ESPBoxes[player] then
+                    ESPBoxes[player]:Destroy()
+                end
+                local newBox = Create3DBox(player, character)
+                if newBox then
+                    ESPBoxes[player] = newBox
                 end
             end
         end)
@@ -364,49 +327,37 @@ local function RemoveESP(player)
     end
 end
 
-local function UpdateESPColors()
-    for player, box in pairs(ESPBoxes) do
-        if player and player.Team then
-            if string.lower(player.Team.Name):find("criminal") then
-                box.Color3 = CriminalsColor
-            else
-                box.Color3 = PoliceColor
-            end
-        end
-    end
-end
-
 ESPToggle.MouseButton1Click:Connect(function()
     ESPEnabled = not ESPEnabled
     ESPToggle.Text = "3D Box ESP: " .. (ESPEnabled and "ON" or "OFF")
     
     if ESPEnabled then
+        -- Удаляем старые ESP перед созданием новых
+        for player, _ in pairs(ESPBoxes) do
+            RemoveESP(player)
+        end
+        ESPBoxes = {}
+        
+        -- Добавляем ESP всем игрокам
         for _, player in pairs(Players:GetPlayers()) do
-            AddESP(player)
+            if player ~= LocalPlayer then
+                AddESP(player)
+            end
         end
         
+        -- Добавляем ESP новым игрокам
         Players.PlayerAdded:Connect(function(player)
-            AddESP(player)
+            if player ~= LocalPlayer then
+                AddESP(player)
+            end
         end)
     else
+        -- Удаляем все ESP
         for player, _ in pairs(ESPBoxes) do
             RemoveESP(player)
         end
         ESPBoxes = {}
     end
-end)
-
--- Color change functions
-CriminalsColorPreview.MouseButton1Click:Connect(function()
-    CriminalsColor = Color3.new(math.random(), math.random(), math.random())
-    CriminalsColorPreview.BackgroundColor3 = CriminalsColor
-    UpdateESPColors()
-end)
-
-PoliceColorPreview.MouseButton1Click:Connect(function()
-    PoliceColor = Color3.new(math.random(), math.random(), math.random())
-    PoliceColorPreview.BackgroundColor3 = PoliceColor
-    UpdateESPColors()
 end)
 
 -- Button hover effects
@@ -418,14 +369,6 @@ local function SetupButtonHover(button)
     button.MouseLeave:Connect(function()
         TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 45, 45)}):Play()
     end)
-    
-    button.MouseButton1Down:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
-    end)
-    
-    button.MouseButton1Up:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(55, 55, 55)}):Play()
-    end)
 end
 
 SetupButtonHover(NoclipToggle)
@@ -435,20 +378,6 @@ SetupButtonHover(ESPToggle)
 for _, tab in pairs(TabButtons) do
     SetupButtonHover(tab)
 end
-
--- Color preview hover effects
-local function SetupColorPreviewHover(preview)
-    preview.MouseEnter:Connect(function()
-        TweenService:Create(preview, TweenInfo.new(0.2), {Size = UDim2.new(0, 85, 0, 22)}):Play()
-    end)
-    
-    preview.MouseLeave:Connect(function()
-        TweenService:Create(preview, TweenInfo.new(0.2), {Size = UDim2.new(0, 80, 0, 20)}):Play()
-    end)
-end
-
-SetupColorPreviewHover(CriminalsColorPreview)
-SetupColorPreviewHover(PoliceColorPreview)
 
 -- Open/Close menu with Insert key
 local MenuVisible = true
