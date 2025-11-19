@@ -106,13 +106,13 @@ for i, tabName in pairs(Tabs) do
     if i == 1 then CurrentTab = TabFrame end
 end
 
--- JailBreak ESP System
+-- JailBreak ESP System (старая система)
 local ESP = {
     Enabled = false,
     Boxes = {},
     CopsColor = Color3.new(0, 0.4, 1),     -- Синий для полиции
     CriminalsColor = Color3.new(1, 0.5, 0), -- Оранжевый для преступников
-    Transparency = 0.7
+    MaxDistance = 500
 }
 
 -- Auto Arrest System
@@ -335,7 +335,7 @@ function getPlayerTeam(player)
     return "Unknown"
 end
 
--- JailBreak ESP с ником и дистанцией
+-- СТАРАЯ СИСТЕМА ESP (из предыдущего кода)
 function createJailBreakESP(player)
     if player == LocalPlayer then return end
     
@@ -358,86 +358,57 @@ function createJailBreakESP(player)
         espColor = Color3.new(1, 1, 1) -- Белый для неизвестных
     end
     
-    -- Создаем 3D Box
-    local box = Instance.new("Part")
-    box.Name = "JailBreakESPBox"
-    box.Size = Vector3.new(4, 6, 4)
-    box.CFrame = rootPart.CFrame
-    box.Anchored = true
-    box.CanCollide = false
-    box.CanTouch = false
-    box.CanQuery = false
-    box.Material = Enum.Material.Neon
-    box.Color = espColor
-    box.Transparency = ESP.Transparency
-    box.Parent = workspace
-    
-    -- Health Bar
-    local healthBar = Instance.new("Part")
-    healthBar.Name = "JailBreakESPHealthBar"
-    healthBar.Size = Vector3.new(0.3, 5, 0.3)
-    healthBar.CFrame = rootPart.CFrame * CFrame.new(2.5, 0, 0)
-    healthBar.Anchored = true
-    healthBar.CanCollide = false
-    healthBar.CanTouch = false
-    healthBar.CanQuery = false
-    healthBar.Material = Enum.Material.Neon
-    healthBar.Color = Color3.new(0, 1, 0)
-    healthBar.Transparency = 0.3
-    healthBar.Parent = workspace
-    
-    -- Name Tag с ником и дистанцией
+    -- Создаем BillboardGui для ESP
     local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 250, 0, 100)
+    billboard.Name = "JailBreakESP"
     billboard.Adornee = rootPart
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
-    billboard.Parent = rootPart
+    billboard.MaxDistance = ESP.MaxDistance
     
     local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0, 25)
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = player.Name
     nameLabel.TextColor3 = espColor
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
     nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextSize = 16
+    nameLabel.TextSize = 14
     nameLabel.Parent = billboard
     
-    local teamLabel = Instance.new("TextLabel")
-    teamLabel.Size = UDim2.new(1, 0, 0, 20)
-    teamLabel.Position = UDim2.new(0, 0, 0, 25)
-    teamLabel.BackgroundTransparency = 1
-    teamLabel.Text = "Team: " .. team
-    teamLabel.TextColor3 = espColor
-    teamLabel.Font = Enum.Font.Gotham
-    teamLabel.TextSize = 12
-    teamLabel.Parent = billboard
-    
     local distanceLabel = Instance.new("TextLabel")
-    distanceLabel.Size = UDim2.new(1, 0, 0, 20)
-    distanceLabel.Position = UDim2.new(0, 0, 0, 45)
+    distanceLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    distanceLabel.Position = UDim2.new(0, 0, 0.5, 0)
     distanceLabel.BackgroundTransparency = 1
     distanceLabel.TextColor3 = espColor
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
     distanceLabel.Font = Enum.Font.Gotham
     distanceLabel.TextSize = 12
     distanceLabel.Parent = billboard
     
-    local infoLabel = Instance.new("TextLabel")
-    infoLabel.Size = UDim2.new(1, 0, 0, 20)
-    infoLabel.Position = UDim2.new(0, 0, 0, 65)
-    infoLabel.BackgroundTransparency = 1
-    infoLabel.TextColor3 = espColor
-    infoLabel.Font = Enum.Font.Gotham
-    infoLabel.TextSize = 11
-    infoLabel.Parent = billboard
+    -- Team indicator
+    local teamLabel = Instance.new("TextLabel")
+    teamLabel.Size = UDim2.new(1, 0, 0, 20)
+    teamLabel.Position = UDim2.new(0, 0, 0, -25)
+    teamLabel.BackgroundTransparency = 1
+    teamLabel.Text = "[" .. team .. "]"
+    teamLabel.TextColor3 = espColor
+    teamLabel.TextStrokeTransparency = 0
+    teamLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    teamLabel.Font = Enum.Font.Gotham
+    teamLabel.TextSize = 11
+    teamLabel.Parent = billboard
+    
+    billboard.Parent = player.Character
     
     ESP.Boxes[player] = {
-        Box = box,
-        HealthBar = healthBar,
         Billboard = billboard,
         NameLabel = nameLabel,
-        TeamLabel = teamLabel,
         DistanceLabel = distanceLabel,
-        InfoLabel = infoLabel,
+        TeamLabel = teamLabel,
         Humanoid = humanoid,
         Team = team
     }
@@ -457,38 +428,30 @@ function updateJailBreakESPInfo(player)
     if not rootPart or not humanoid then return end
     
     local distance = (rootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-    local healthPercent = humanoid.Health / humanoid.MaxHealth
-    
-    -- Обновляем health bar
-    ESP.Boxes[player].HealthBar.Size = Vector3.new(0.3, 5 * healthPercent, 0.3)
-    ESP.Boxes[player].HealthBar.Color = Color3.new(1 - healthPercent, healthPercent, 0)
     
     -- Обновляем дистанцию
-    ESP.Boxes[player].DistanceLabel.Text = "Distance: " .. math.floor(distance) .. " studs"
-    
-    -- Обновляем информацию
-    local infoText = "HP: " .. math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth)
-    ESP.Boxes[player].InfoLabel.Text = infoText
+    ESP.Boxes[player].DistanceLabel.Text = math.floor(distance) .. "m"
     
     -- Обновляем команду
     local currentTeam = getPlayerTeam(player)
     if ESP.Boxes[player].Team ~= currentTeam then
         ESP.Boxes[player].Team = currentTeam
         local newColor = currentTeam == "Police" and ESP.CopsColor or ESP.CriminalsColor
-        ESP.Boxes[player].Box.Color = newColor
         ESP.Boxes[player].NameLabel.TextColor3 = newColor
-        ESP.Boxes[player].TeamLabel.TextColor3 = newColor
         ESP.Boxes[player].DistanceLabel.TextColor3 = newColor
-        ESP.Boxes[player].InfoLabel.TextColor3 = newColor
-        ESP.Boxes[player].TeamLabel.Text = "Team: " .. currentTeam
+        ESP.Boxes[player].TeamLabel.TextColor3 = newColor
+        ESP.Boxes[player].TeamLabel.Text = "[" .. currentTeam .. "]"
     end
+    
+    -- Обновляем видимость по дистанции
+    ESP.Boxes[player].Billboard.Enabled = (distance <= ESP.MaxDistance)
 end
 
 function clearJailBreakESP()
     for player, boxData in pairs(ESP.Boxes) do
-        if boxData.Box then boxData.Box:Destroy() end
-        if boxData.HealthBar then boxData.HealthBar:Destroy() end
-        if boxData.Billboard then boxData.Billboard:Destroy() end
+        if boxData.Billboard then 
+            boxData.Billboard:Destroy() 
+        end
     end
     ESP.Boxes = {}
 end
@@ -501,7 +464,7 @@ function toggleJailBreakESP(state)
                 createJailBreakESP(player)
             end
         end
-        print("JailBreak ESP включен (ник + дистанция)")
+        print("JailBreak ESP включен (старая система)")
     else
         clearJailBreakESP()
         print("JailBreak ESP выключен")
@@ -701,15 +664,8 @@ RunService.Heartbeat:Connect(function()
     if ESP.Enabled then
         for player, boxData in pairs(ESP.Boxes) do
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local rootPart = player.Character.HumanoidRootPart
-                
-                boxData.Box.CFrame = rootPart.CFrame
-                boxData.HealthBar.CFrame = rootPart.CFrame * CFrame.new(2.5, (boxData.HealthBar.Size.Y - 6) / 2, 0)
-                
                 updateJailBreakESPInfo(player)
             else
-                if boxData.Box then boxData.Box:Destroy() end
-                if boxData.HealthBar then boxData.HealthBar:Destroy() end
                 if boxData.Billboard then boxData.Billboard:Destroy() end
                 ESP.Boxes[player] = nil
             end
@@ -826,7 +782,7 @@ print("🎮 JailBreak Hack v2 Loaded!")
 print("📝 Нажми INSERT чтобы скрыть/показать")
 print("👮 ESP: Синий - полиция, Оранжевый - преступники")
 print("🎯 Aimbot - авто-прицеливание на преступников")
-print("📏 ESP показывает: ник, дистанцию, хп, команду")
+print("📏 ESP показывает: ник, дистанцию, команду")
 print("🚓 Auto Arrest - автоматический арест")
 print("⚡ Fly to Target - мгновенный полет к цели")
 print("🎨 Settings - смена цвета меню")
