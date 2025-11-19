@@ -11,8 +11,8 @@ ScreenGui.Parent = game.CoreGui
 ScreenGui.Name = "RAGE_MOD"
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 500, 0, 400)
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
+MainFrame.Size = UDim2.new(0, 500, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -225)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -372,6 +372,155 @@ ESPToggle.Font = Enum.Font.Gotham
 ESPToggle.TextSize = 14
 ESPToggle.Parent = VisualsTab
 
+-- Skeleton ESP
+local SkeletonEnabled = false
+local Skeletons = {}
+
+local function CreateSkeleton(player, character)
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local skeletonFolder = Instance.new("Folder")
+    skeletonFolder.Name = "RAGE_SKELETON"
+    skeletonFolder.Parent = character
+    
+    -- Bone connections for humanoid skeleton
+    local boneConnections = {
+        -- Torso connections
+        {"HumanoidRootPart", "LowerTorso"},
+        {"LowerTorso", "UpperTorso"},
+        {"UpperTorso", "Head"},
+        
+        -- Left arm
+        {"UpperTorso", "LeftUpperArm"},
+        {"LeftUpperArm", "LeftLowerArm"},
+        {"LeftLowerArm", "LeftHand"},
+        
+        -- Right arm
+        {"UpperTorso", "RightUpperArm"},
+        {"RightUpperArm", "RightLowerArm"},
+        {"RightLowerArm", "RightHand"},
+        
+        -- Left leg
+        {"LowerTorso", "LeftUpperLeg"},
+        {"LeftUpperLeg", "LeftLowerLeg"},
+        {"LeftLowerLeg", "LeftFoot"},
+        
+        -- Right leg
+        {"LowerTorso", "RightUpperLeg"},
+        {"RightUpperLeg", "RightLowerLeg"},
+        {"RightLowerLeg", "RightFoot"}
+    }
+    
+    -- Create lines for each bone connection
+    for _, connection in pairs(boneConnections) do
+        local part1 = character:FindFirstChild(connection[1])
+        local part2 = character:FindFirstChild(connection[2])
+        
+        if part1 and part2 then
+            local attachment1 = Instance.new("Attachment")
+            attachment1.Name = "SkeletonAttachment1"
+            attachment1.Parent = part1
+            
+            local attachment2 = Instance.new("Attachment")
+            attachment2.Name = "SkeletonAttachment2"
+            attachment2.Parent = part2
+            
+            local beam = Instance.new("Beam")
+            beam.Name = "SkeletonBeam"
+            beam.Attachment0 = attachment1
+            beam.Attachment1 = attachment2
+            beam.Color = ColorSequence.new(ESPColors[CurrentESPColor])
+            beam.Width0 = 0.1
+            beam.Width1 = 0.1
+            beam.Brightness = 2
+            beam.LightEmission = 0.5
+            beam.Parent = skeletonFolder
+        end
+    end
+    
+    Skeletons[player] = skeletonFolder
+end
+
+local function RemoveSkeleton(player)
+    if Skeletons[player] then
+        Skeletons[player]:Destroy()
+        Skeletons[player] = nil
+    end
+end
+
+local function UpdateSkeletonColors()
+    for player, skeleton in pairs(Skeletons) do
+        for _, beam in pairs(skeleton:GetChildren()) do
+            if beam:IsA("Beam") then
+                beam.Color = ColorSequence.new(ESPColors[CurrentESPColor])
+            end
+        end
+    end
+end
+
+-- Skeleton Toggle
+local SkeletonToggle = Instance.new("TextButton")
+SkeletonToggle.Size = UDim2.new(1, -20, 0, 40)
+SkeletonToggle.Position = UDim2.new(0, 10, 0, 230)
+SkeletonToggle.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SkeletonToggle.BorderSizePixel = 0
+SkeletonToggle.Text = "Skeleton ESP: OFF"
+SkeletonToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SkeletonToggle.Font = Enum.Font.Gotham
+SkeletonToggle.TextSize = 14
+SkeletonToggle.Parent = VisualsTab
+
+SkeletonToggle.MouseButton1Click:Connect(function()
+    SkeletonEnabled = not SkeletonEnabled
+    SkeletonToggle.Text = "Skeleton ESP: " .. (SkeletonEnabled and "ON" or "OFF")
+    
+    if SkeletonEnabled then
+        -- Удаляем старые скелетоны
+        for player, _ in pairs(Skeletons) do
+            RemoveSkeleton(player)
+        end
+        Skeletons = {}
+        
+        -- Создаем скелетоны для всех игроков
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                CreateSkeleton(player, player.Character)
+            end
+        end
+        
+        -- Обработка новых игроков
+        Players.PlayerAdded:Connect(function(player)
+            if player ~= LocalPlayer then
+                player.CharacterAdded:Connect(function(character)
+                    if SkeletonEnabled then
+                        wait(1)
+                        CreateSkeleton(player, character)
+                    end
+                end)
+            end
+        end)
+        
+        -- Обработка смены персонажа
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                player.CharacterAdded:Connect(function(character)
+                    if SkeletonEnabled then
+                        wait(1)
+                        CreateSkeleton(player, character)
+                    end
+                end)
+            end
+        end
+        
+    else
+        -- Удаляем все скелетоны
+        for player, _ in pairs(Skeletons) do
+            RemoveSkeleton(player)
+        end
+        Skeletons = {}
+    end
+end)
+
 local function Create2DESP(player, character)
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
@@ -619,6 +768,7 @@ local function RemoveESP(player)
         ESPLabels[player].Billboard:Destroy()
         ESPLabels[player] = nil
     end
+    RemoveSkeleton(player)
 end
 
 local function UpdateAllESPColors()
@@ -641,6 +791,8 @@ local function UpdateAllESPColors()
             espData.HPLabel.TextColor3 = ESPColors[CurrentESPColor]
         end
     end
+    
+    UpdateSkeletonColors()
 end
 
 local function UpdateESPForAllPlayers()
@@ -692,142 +844,4 @@ ESPToggle.MouseButton1Click:Connect(function()
         ESPLabels = {}
         
         -- Создаем ESP для всех игроков
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                CreateESP(player, player.Character)
-            end
-        end
-        
-        -- Обработка новых игроков
-        Players.PlayerAdded:Connect(function(player)
-            if player ~= LocalPlayer then
-                player.CharacterAdded:Connect(function(character)
-                    if ESPEnabled then
-                        wait(1)
-                        CreateESP(player, character)
-                    end
-                end)
-            end
-        end)
-        
-        -- Обработка смены персонажа
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                player.CharacterAdded:Connect(function(character)
-                    if ESPEnabled then
-                        wait(1)
-                        CreateESP(player, character)
-                    end
-                end)
-            end
-        end
-        
-        -- Постоянное обновление
-        if ESPType == "2D" then
-            RunService.Heartbeat:Connect(function()
-                for player, espData in pairs(ESPBoxes) do
-                    if player.Character then
-                        Update2DESPPosition(player, player.Character)
-                        UpdateHP(player, player.Character)
-                        UpdateDistance(player, player.Character)
-                    end
-                end
-            end)
-        else
-            RunService.Heartbeat:Connect(function()
-                for player, espData in pairs(ESPLabels) do
-                    if player.Character then
-                        UpdateHP(player, player.Character)
-                        UpdateDistance(player, player.Character)
-                    end
-                end
-            end)
-        end
-        
-    else
-        -- Удаляем все ESP
-        for player, _ in pairs(ESPBoxes) do
-            RemoveESP(player)
-        end
-        for player, _ in pairs(ESPLabels) do
-            RemoveESP(player)
-        end
-        ESPBoxes = {}
-        ESPLabels = {}
-    end
-end)
-
--- Slider Logic
-local SliderDragging = false
-
-DistanceButton.MouseButton1Down:Connect(function()
-    SliderDragging = true
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if SliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local mousePos = UserInputService:GetMouseLocation()
-        local sliderPos = DistanceSlider.AbsolutePosition
-        local sliderSize = DistanceSlider.AbsoluteSize
-        
-        local relativeX = math.clamp((mousePos.X - sliderPos.X) / sliderSize.X, 0, 1)
-        ESPMaxDistance = math.floor(relativeX * 1000)
-        
-        DistanceLabel.Text = "ESP Distance: " .. ESPMaxDistance .. "m"
-        DistanceFill.Size = UDim2.new(relativeX, 0, 1, 0)
-        DistanceButton.Position = UDim2.new(relativeX, -5, 0.5, -12)
-        
-        -- Обновляем MaxDistance для 3D ESP
-        for _, espData in pairs(ESPLabels) do
-            espData.Billboard.MaxDistance = ESPMaxDistance
-        end
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        SliderDragging = false
-    end
-end)
-
--- Settings - Color Selection
-local ColorLabel = Instance.new("TextLabel")
-ColorLabel.Size = UDim2.new(1, -20, 0, 30)
-ColorLabel.Position = UDim2.new(0, 10, 0, 15)
-ColorLabel.BackgroundTransparency = 1
-ColorLabel.Text = "Menu Color:"
-ColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-ColorLabel.Font = Enum.Font.Gotham
-ColorLabel.TextSize = 14
-ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
-ColorLabel.Parent = SettingsTab
-
-local ColorButtons = {}
-local ColorNames = {"Black", "Blue", "Red", "Green", "Yellow", "Purple", "Cyan", "Orange", "Gray"}
-
-local function UpdateMenuColor(colorIndex)
-    CurrentMenuColor = colorIndex
-    MainFrame.BackgroundColor3 = MenuColors[colorIndex]
-    
-    -- Обновляем цвет заголовка (немного темнее основного)
-    local titleColor = Color3.new(
-        math.max(0, MenuColors[colorIndex].R - 0.05),
-        math.max(0, MenuColors[colorIndex].G - 0.05),
-        math.max(0, MenuColors[colorIndex].B - 0.05)
-    )
-    Title.BackgroundColor3 = titleColor
-    
-    -- Обновляем цвет вкладок
-    for _, tab in pairs(TabButtons) do
-        tab.BackgroundColor3 = Color3.new(
-            math.max(0, MenuColors[colorIndex].R - 0.03),
-            math.max(0, MenuColors[colorIndex].G - 0.03),
-            math.max(0, MenuColors[colorIndex].B - 0.03)
-        )
-    end
-    
-    -- Обновляем цвет кнопок внутри вкладок
-    for _, tabFrame in pairs(TabFrames) do
-        for _, child in pairs(tabFrame:GetChildren()) do
-            if child:IsA("TextButton") then
-                child
+        for _, player in pairs(
