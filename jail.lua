@@ -46,8 +46,8 @@ ScreenGui.Enabled = true
 ScreenGui.DisplayOrder = 999
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 450, 0, 400)
-MainFrame.Position = UDim2.new(0.5, -225, 0.5, -200)
+MainFrame.Size = UDim2.new(0, 450, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -175)
 MainFrame.BackgroundColor3 = MenuColors[1]
 MainFrame.BorderSizePixel = 0
 MainFrame.Visible = true
@@ -106,7 +106,7 @@ for i, tabName in pairs(Tabs) do
     if i == 1 then CurrentTab = TabFrame end
 end
 
--- JailBreak ESP System (старая система)
+-- JailBreak ESP System
 local ESP = {
     Enabled = false,
     Boxes = {},
@@ -115,34 +115,23 @@ local ESP = {
     MaxDistance = 500
 }
 
--- Auto Arrest System
-local AutoArrest = {
+-- Fly System
+local Fly = {
     Enabled = false,
-    Target = nil,
-    Arresting = false,
-    ArrestDistance = 10
-}
-
--- Aimbot System
-local Aimbot = {
-    Enabled = false,
-    Target = nil,
-    TeamCheck = true, -- Аиметь только на преступников
-    Smoothness = 0.1,
-    FOV = 50
+    BodyGyro = nil,
+    BodyVelocity = nil,
+    Speed = 50
 }
 
 -- Кнопки для Misc
 local miscButtons = {
-    {name = "Fly to Target", y = 15},
+    {name = "Fly", y = 15},
     {name = "Noclip", y = 60}
 }
 
 -- Кнопки для Visuals
 local visualsButtons = {
-    {name = "JailBreak ESP", y = 15},
-    {name = "Aimbot", y = 60},
-    {name = "Auto Arrest", y = 105}
+    {name = "JailBreak ESP", y = 15}
 }
 
 local toggles = {}
@@ -177,8 +166,8 @@ for i, btn in pairs(miscButtons) do
             button.Text = btn.name .. " [OFF]"
         end
         
-        if btn.name == "Fly to Target" then
-            toggleFlyToTarget(toggles[btn.name].enabled)
+        if btn.name == "Fly" then
+            toggleFly(toggles[btn.name].enabled)
         elseif btn.name == "Noclip" then
             toggleNoclip(toggles[btn.name].enabled)
         end
@@ -217,10 +206,6 @@ for i, btn in pairs(visualsButtons) do
         
         if btn.name == "JailBreak ESP" then
             toggleJailBreakESP(toggles[btn.name].enabled)
-        elseif btn.name == "Aimbot" then
-            toggleAimbot(toggles[btn.name].enabled)
-        elseif btn.name == "Auto Arrest" then
-            toggleAutoArrest(toggles[btn.name].enabled)
         end
     end)
 end
@@ -335,7 +320,7 @@ function getPlayerTeam(player)
     return "Unknown"
 end
 
--- СТАРАЯ СИСТЕМА ESP (из предыдущего кода)
+-- ESP System
 function createJailBreakESP(player)
     if player == LocalPlayer then return end
     
@@ -464,191 +449,54 @@ function toggleJailBreakESP(state)
                 createJailBreakESP(player)
             end
         end
-        print("JailBreak ESP включен (старая система)")
+        print("JailBreak ESP включен")
     else
         clearJailBreakESP()
         print("JailBreak ESP выключен")
     end
 end
 
--- Aimbot System
-function findAimbotTarget()
-    local closestTarget = nil
-    local closestDistance = Aimbot.FOV
+-- Fly System
+function toggleFly(state)
+    Fly.Enabled = state
     
-    local camera = workspace.CurrentCamera
-    if not camera then return nil end
-    
-    local mousePos = Vector2.new(0, 0)
-    if UserInputService.MouseEnabled then
-        mousePos = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
-    end
-    
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local team = getPlayerTeam(player)
-            
-            -- Проверка команды для аимбота
-            if Aimbot.TeamCheck and team ~= "Criminal" then
-                continue
-            end
-            
-            local humanoid = player.Character:FindFirstChild("Humanoid")
-            local head = player.Character:FindFirstChild("Head")
-            
-            if humanoid and humanoid.Health > 0 and head then
-                -- Проверка FOV
-                local screenPoint, onScreen = camera:WorldToViewportPoint(head.Position)
-                if onScreen then
-                    local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
-                    local distance = (mousePos - targetPos).Magnitude
-                    
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestTarget = player
-                    end
-                end
-            end
-        end
-    end
-    
-    return closestTarget
-end
-
-function smoothAim(targetPosition)
-    local camera = workspace.CurrentCamera
-    if not camera then return end
-    
-    local currentCFrame = camera.CFrame
-    local delta = (targetPosition - currentCFrame.Position).Unit
-    local goalCFrame = CFrame.lookAt(currentCFrame.Position, currentCFrame.Position + delta)
-    
-    return currentCFrame:Lerp(goalCFrame, Aimbot.Smoothness)
-end
-
-function toggleAimbot(state)
-    Aimbot.Enabled = state
     if state then
-        print("Aimbot включен (только на преступников)")
-    else
-        Aimbot.Target = nil
-        print("Aimbot выключен")
-    end
-end
-
--- Auto Arrest System
-function findArrestTarget()
-    local closestTarget = nil
-    local closestDistance = math.huge
-    
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local team = getPlayerTeam(player)
-            if team == "Criminal" then -- Арестовываем только преступников
-                local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-                local humanoid = player.Character:FindFirstChild("Humanoid")
-                
-                if rootPart and humanoid and humanoid.Health > 0 then
-                    local distance = (rootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestTarget = player
-                    end
-                end
-            end
-        end
-    end
-    
-    return closestTarget, closestDistance
-end
-
-function performArrest(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then return false end
-    
-    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetRoot then return false end
-    
-    -- Симуляция ареста через различные методы
-    local arrestMethods = {
-        function()
-            local character = LocalPlayer.Character
-            if character then
-                for _, tool in pairs(character:GetChildren()) do
-                    if tool:IsA("Tool") and (string.find(string.lower(tool.Name), "cuff") or 
-                       string.find(string.lower(tool.Name), "tazer") or 
-                       string.find(string.lower(tool.Name), "arrest")) then
-                        tool:Activate()
-                        return true
-                    end
-                end
-            end
-            return false
-        end,
-        
-        function()
-            local character = LocalPlayer.Character
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                character.HumanoidRootPart.CFrame = targetRoot.CFrame
-                return true
-            end
-            return false
-        end,
-        
-        function()
-            local success = pcall(function()
-                for _, obj in pairs(game:GetDescendants()) do
-                    if obj:IsA("RemoteEvent") and (string.find(string.lower(obj.Name), "arrest") or 
-                       string.find(string.lower(obj.Name), "cuff") or 
-                       string.find(string.lower(obj.Name), "taze")) then
-                        obj:FireServer(targetPlayer)
-                        return true
-                    end
-                end
-                return false
-            end)
-            return success
-        end
-    }
-    
-    for _, method in pairs(arrestMethods) do
-        if method() then
-            print("Арест выполнен: " .. targetPlayer.Name)
-            return true
-        end
-    end
-    
-    return false
-end
-
-function toggleAutoArrest(state)
-    AutoArrest.Enabled = state
-    if state then
-        print("Auto Arrest включен - поиск преступников...")
-    else
-        AutoArrest.Target = nil
-        AutoArrest.Arresting = false
-        print("Auto Arrest выключен")
-    end
-end
-
--- Fly to Target System
-function toggleFlyToTarget(state)
-    if state then
-        local target, distance = findArrestTarget()
-        if target and target.Character then
-            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-            if targetRoot then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = targetRoot.CFrame + Vector3.new(0, 5, 0)
-                print("Прилетели к: " .. target.Name)
-            end
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local root = LocalPlayer.Character.HumanoidRootPart
+            
+            -- Создаем BodyGyro для стабильности
+            Fly.BodyGyro = Instance.new("BodyGyro")
+            Fly.BodyGyro.P = 1000
+            Fly.BodyGyro.D = 50
+            Fly.BodyGyro.MaxTorque = Vector3.new(4000, 4000, 4000)
+            Fly.BodyGyro.CFrame = root.CFrame
+            Fly.BodyGyro.Parent = root
+            
+            -- Создаем BodyVelocity для движения
+            Fly.BodyVelocity = Instance.new("BodyVelocity")
+            Fly.BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            Fly.BodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
+            Fly.BodyVelocity.Parent = root
+            
+            print("Fly включен - используйте WASD для движения, Space/Shift для высоты")
         else
-            print("Преступники не найдены")
+            print("Ошибка: персонаж не найден")
+            toggles["Fly"].enabled = false
+            toggles["Fly"].button.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+            toggles["Fly"].button.Text = "Fly [OFF]"
+            return
         end
-        -- Автоматически выключаем после использования
-        wait(0.1)
-        toggles["Fly to Target"].enabled = false
-        toggles["Fly to Target"].button.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-        toggles["Fly to Target"].button.Text = "Fly to Target [OFF]"
+    else
+        -- Удаляем BodyGyro и BodyVelocity
+        if Fly.BodyGyro then
+            Fly.BodyGyro:Destroy()
+            Fly.BodyGyro = nil
+        end
+        if Fly.BodyVelocity then
+            Fly.BodyVelocity:Destroy()
+            Fly.BodyVelocity = nil
+        end
+        print("Fly выключен")
     end
 end
 
@@ -672,40 +520,34 @@ RunService.Heartbeat:Connect(function()
         end
     end
     
-    -- Aimbot System
-    if Aimbot.Enabled then
-        Aimbot.Target = findAimbotTarget()
-        if Aimbot.Target and Aimbot.Target.Character then
-            local head = Aimbot.Target.Character:FindFirstChild("Head")
-            if head then
-                local camera = workspace.CurrentCamera
-                local newCFrame = smoothAim(head.Position)
-                camera.CFrame = newCFrame
-            end
+    -- Fly System
+    if Fly.Enabled and Fly.BodyVelocity then
+        local root = LocalPlayer.Character.HumanoidRootPart
+        local velocity = Vector3.new(0, 0, 0)
+        
+        -- WASD controls
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            velocity = velocity + root.CFrame.LookVector * Fly.Speed
         end
-    end
-    
-    -- Auto Arrest System
-    if AutoArrest.Enabled and not AutoArrest.Arresting then
-        local target, distance = findArrestTarget()
-        if target and distance < 50 then
-            AutoArrest.Target = target
-            AutoArrest.Arresting = true
-            
-            if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
-                wait(0.5)
-                
-                if performArrest(target) then
-                    print("Успешный арест: " .. target.Name)
-                else
-                    print("Не удалось арестовать: " .. target.Name)
-                end
-                
-                AutoArrest.Arresting = false
-                wait(1)
-            end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            velocity = velocity - root.CFrame.LookVector * Fly.Speed
         end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            velocity = velocity - root.CFrame.RightVector * Fly.Speed
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            velocity = velocity + root.CFrame.RightVector * Fly.Speed
+        end
+        
+        -- Up/Down controls
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            velocity = velocity + Vector3.new(0, Fly.Speed, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            velocity = velocity - Vector3.new(0, Fly.Speed, 0)
+        end
+        
+        Fly.BodyVelocity.Velocity = velocity
     end
     
     -- Noclip
@@ -781,8 +623,6 @@ end
 print("🎮 JailBreak Hack v2 Loaded!")
 print("📝 Нажми INSERT чтобы скрыть/показать")
 print("👮 ESP: Синий - полиция, Оранжевый - преступники")
-print("🎯 Aimbot - авто-прицеливание на преступников")
 print("📏 ESP показывает: ник, дистанцию, команду")
-print("🚓 Auto Arrest - автоматический арест")
-print("⚡ Fly to Target - мгновенный полет к цели")
+print("🕊️ Fly - полет на WASD + Space/Shift")
 print("🎨 Settings - смена цвета меню")
